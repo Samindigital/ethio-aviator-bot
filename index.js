@@ -1,7 +1,7 @@
 const TelegramBot = require('node-telegram-bot-api');
 const express = require('express');
 
-const TOKEN = 'YOUR_BOT_TOKEN_HERE'; // <-- የBotFather ቶክንህን እዚህ አስገባ
+const TOKEN = 8803882724:AAFxQyifk9_snGYfdjiirs69X_XbJfoxtHY
 const bot = new TelegramBot(TOKEN, { polling: true });
 const app = express();
 
