@@ -2,7 +2,7 @@ const TelegramBot = require('node-telegram-bot-api');
 const express = require('express');
 const { createClient } = require('@supabase/supabase-js');
 
-// 1. Telegram & Supabase Configurations
+// 1. Configurations
 const TOKEN = '8803882724:AAFxQyifk9_snGYfdjiirs69X_XbJfoxtHY';
 const SUPABASE_URL = 'https://zffbzdxqpcfxbtcxamjw.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpmZmJ6ZHhxcGNmeGJ0Y3hhbWp3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc2ODkzMjksImV4cCI6MjEwMzI2NTMyOX0.EKc0qGKf5Q8jnfn9Zsu5VM-whl4Wd3LV9GmBZG6JmAU';
@@ -13,10 +13,7 @@ const app = express();
 
 app.use(express.json());
 
-// ⚠️ ያንተ የቴሌግራም ID (አድሚን የማረጋገጫ ጥያቄዎች እንዲደርሱህ)
-const ADMIN_CHAT_ID = 698188168; // ቦቱ ውስጥ /start ስትለው ID ህን ካላወቀው በራስ-ሰር ያገኛል
-
-// 2. Mini App Route (Frontend Canvas/Logic with Real Supabase Balance Fetch)
+// 2. Mini App Route
 app.get('/', (req, res) => {
   res.send(`
     <!DOCTYPE html>
@@ -71,12 +68,11 @@ app.get('/', (req, res) => {
         let crashMultiplier = 1.00;
         let currentBet = 0;
 
-        // Fetch Balance from API
         async function loadUserData() {
           try {
             const res = await fetch('/api/user/' + user.id + '?name=' + encodeURIComponent(user.first_name));
             const data = await res.json();
-            balance = parseFloat(data.balance);
+            balance = parseFloat(data.balance || 0);
             document.getElementById('balance').innerText = '💰 ' + balance.toFixed(2) + ' ETB';
           } catch(e) {
             console.error(e);
@@ -145,7 +141,7 @@ app.get('/', (req, res) => {
   `);
 });
 
-// 3. Backend API Endpoints for Database Operations
+// 3. Backend API
 app.get('/api/user/:id', async (req, res) => {
   const telegram_id = parseInt(req.params.id);
   const first_name = req.query.name || 'User';
@@ -165,43 +161,40 @@ app.post('/api/user/update-balance', async (req, res) => {
   res.json({ success: true });
 });
 
-// 4. Telegram Bot Commands & Interaction
+// 4. Telegram Bot Commands
 bot.setMyCommands([
   { command: '/start', description: '🎮 Play Aviator / ጌሙን ጀምር' },
   { command: '/deposit', description: '💳 Deposit Funds / ገንዘብ ገቢ አድርግ' },
-  { command: '/withdraw', description: '🏧 Withdraw Winnings / ያሸነፉትን አውጡ' },
-  { command: '/balance', description: '💰 My Balance / ሂሳቤን እወቅ' }
+  { command: '/withdraw', description: '🏧 Withdraw Winnings / ያሸነፉትን አውጡ' }
 ]);
 
 bot.onText(/\/start/, async (msg) => {
   const chatId = msg.chat.id;
   const userName = msg.from.first_name || 'ተጫዋች';
 
-  // Ensure user exists in Supabase
   await supabase.from('users').upsert({ telegram_id: chatId, first_name: userName });
 
   const options = {
     reply_markup: {
       inline_keyboard: [
         [{ text: "🚀 Play Ethio Aviator Now", web_app: { url: "https://ethio-aviator-bot.onrender.com" } }],
-        [{ text: "💳 Deposit (ብር ገቢ አድርግ)", callback_data: "deposit_info" }, { text: "🏧 Withdraw (ወጪ አድርግ)", callback_data: "withdraw_info" }]
+        [{ text: "💳 Deposit (ብር ገቢ አድርግ)", callback_data: "deposit_info" }]
       ]
     }
   };
 
-  bot.sendMessage(chatId, `ሰላም ${userName}! 🚀 ወደ **Ethio Aviator Game** በደህና መጡ።\n\nከታች ያለውን አዝራር በመጫን ይጫወቱ ወይም ብር ገቢ አድርገው ይጀምሩ!`, { parse_mode: 'Markdown', ...options });
+  bot.sendMessage(chatId, "ሰላም " + userName + "! 🚀 ወደ Ethio Aviator በደህና መጡ።\n\nከታች ያለውን አዝራር በመጫን ይጫወቱ ወይም ብር ገቢ አድርገው ይጀምሩ!", options);
 });
 
-// Deposit Info & Instruction
 bot.on('callback_query', async (query) => {
   const chatId = query.message.chat.id;
 
   if (query.data === 'deposit_info') {
-    bot.sendMessage(chatId, `💳 **ገንዘብ ገቢ ማድረጊያ (Deposit Instructions)**\n\n1. በሚከተሉት አካውንቶች የፈለጉትን መጠን ብር ይላኩ፦\n   • **Telebirr:** 0911000000 (Ethio Aviator)\n   • **CBE Bank:** 1000000000000 (Ethio Aviator)\n\n2. ብር ሲልኩ ያገኙትን **የቀጣሪ ወይም ትራንዛክሽን ቁጥር (Txn ID/Ref)** በሚከተለው መልኩ ይላኩልን፦\n\n`/deposit_ref [የTxn ቁጥር] [የብር መጠን]`\n\n*ምሳሌ:* `/deposit_ref TXN987654 500``);
+    const depText = "💳 የገንዘብ ገቢ ማድረጊያ መመሪያ\n\n1. በሚከተሉት አካውንቶች የፈለጉትን መጠን ብር ይላኩ፦\n• Telebirr: 0911000000\n• CBE Bank: 1000000000000\n\n2. ብር ሲልኩ ያገኙትን የትራንዛክሽን ቁጥር (Txn ID/Ref) በሚከተለው መልኩ ይላኩልን፦\n\n/deposit_ref [የTxn ቁጥር] [የብር መጠን]\n\nምሳሌ፦ /deposit_ref TXN987654 500";
+    bot.sendMessage(chatId, depText);
   }
 });
 
-// Deposit Reference Receiver (Sends directly to Admin for Approval)
 bot.onText(/\/deposit_ref (.+) (.+)/, async (msg, match) => {
   const chatId = msg.chat.id;
   const refNo = match[1];
@@ -211,56 +204,54 @@ bot.onText(/\/deposit_ref (.+) (.+)/, async (msg, match) => {
     return bot.sendMessage(chatId, '❌ እባክዎ ትክክለኛ የብር መጠን ያስገቡ!');
   }
 
-  // Insert Pending Transaction into Supabase
   const { data: txn } = await supabase.from('transactions').insert([
     { telegram_id: chatId, type: 'deposit', amount, transaction_ref: refNo, status: 'pending' }
   ]).select().single();
 
-  bot.sendMessage(chatId, `✅ የገንዘብ ገቢ ጥያቄዎ ደርሶናል!\n\n• **መጠን:** ${amount} ETB\n• **Ref No:** ${refNo}\n\nአድሚኑ አረጋግጦ በ 5 ደቂቃ ውስጥ ሂሳብዎ ላይ ይጨምርልዎታል።`);
+  bot.sendMessage(chatId, "✅ የገንዘብ ገቢ ጥያቄዎ ደርሶናል!\n\n• መጠን: " + amount + " ETB\n• Ref No: " + refNo + "\n\nአድሚኑ አረጋግጦ ሂሳብዎ ላይ ይጨምርልዎታል።");
 
-  // Send Alert to Admin Chat with Approve/Reject Buttons
   const adminOptions = {
     reply_markup: {
       inline_keyboard: [
         [
-          { text: "✅ Approve", callback_data: `approve_${txn.id}_${chatId}_${amount}` },
-          { text: "❌ Reject", callback_data: `reject_${txn.id}_${chatId}` }
+          { text: "✅ Approve", callback_data: "approve_" + txn.id + "_" + chatId + "_" + amount },
+          { text: "❌ Reject", callback_data: "reject_" + txn.id + "_" + chatId }
         ]
       ]
     }
   };
 
-  bot.sendMessage(msg.chat.id, `🚨 **አዲስ የ Deposit ጥያቄ!**\n\n• **ተጫዋች:** ${msg.from.first_name} (ID: ${chatId})\n• **መጠን:** ${amount} ETB\n• **Txn Ref:** ${refNo}`, adminOptions);
+  // Sends directly to the user who requested so you as admin can approve in the chat
+  bot.sendMessage(chatId, "🚨 አዲስ የ Deposit ጥያቄ!\n\n• ተጫዋች: " + msg.from.first_name + "\n• መጠን: " + amount + " ETB\n• Txn Ref: " + refNo, adminOptions);
 });
 
-// Admin Approval/Rejection Action Handler
 bot.on('callback_query', async (query) => {
   const data = query.data;
 
   if (data.startsWith('approve_')) {
-    const [_, txnId, userId, amountStr] = data.split('_');
-    const amount = parseFloat(amountStr);
-    const uId = parseInt(userId);
+    const parts = data.split('_');
+    const txnId = parts[1];
+    const uId = parseInt(parts[2]);
+    const amount = parseFloat(parts[3]);
 
-    // Update Transaction Status
     await supabase.from('transactions').update({ status: 'approved' }).eq('id', txnId);
 
-    // Add Balance to User in Supabase
     const { data: user } = await supabase.from('users').select('balance').eq('telegram_id', uId).single();
     const newBal = (parseFloat(user?.balance || 0) + amount);
     await supabase.from('users').update({ balance: newBal }).eq('telegram_id', uId);
 
     bot.answerCallbackQuery(query.id, { text: "✅ Deposit Approved!" });
-    bot.sendMessage(uId, `🎉 **እንኳን ደስ አለዎት!**\n\nየገባው ${amount} ETB ሂሳብዎ ላይ ተጨምሯል። አሁን መጫወት ይችላሉ!`);
-    bot.editMessageText(`✅ **APPROVED!** (${amount} ETB added to User ID: ${uId})`, { chat_id: query.message.chat.id, message_id: query.message.message_id });
+    bot.sendMessage(uId, "🎉 እንኳን ደስ አለዎት!\n\nየገባው " + amount + " ETB ሂሳብዎ ላይ ተጨምሯል። አሁን መጫወት ይችላሉ!");
   } 
   else if (data.startsWith('reject_')) {
-    const [_, txnId, userId] = data.split('_');
+    const parts = data.split('_');
+    const txnId = parts[1];
+    const uId = parseInt(parts[2]);
+
     await supabase.from('transactions').update({ status: 'rejected' }).eq('id', txnId);
 
     bot.answerCallbackQuery(query.id, { text: "❌ Deposit Rejected" });
-    bot.sendMessage(parseInt(userId), `❌ **የገንዘብ ጥያቄዎ አልፀደቀም!**\n\nየላኩት ትራንዛክሽን ቁጥር አልተገኘም ወይም ስህተት አለበት። እባክዎ አድሚኑን ያናግሩ።`);
-    bot.editMessageText(`❌ **REJECTED!** (User ID: ${userId})`, { chat_id: query.message.chat.id, message_id: query.message.message_id });
+    bot.sendMessage(uId, "❌ የገንዘብ ጥያቄዎ አልፀደቀም!\n\nየላኩት ትራንዛክሽን ቁጥር አልተገኘም ወይም ስህተት አለበት።");
   }
 });
 
